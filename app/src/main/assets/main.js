@@ -10099,7 +10099,40 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 
 /***/ })
 /******/ ])["default"];
-});class List {
+});class Clipboard {
+  constructor() {
+  }
+  copy (text) {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(() => {
+        console.log("success");
+      }).catch((e)=> {
+        console.log(e);
+      });
+    } else { //Apple=Shit
+      const input = document.createElement('input')
+      input.contentEditable = true
+      input.readOnly = false
+      input.value = text
+      this.element.appendChild(input)
+      const range = document.createRange()
+      range.selectNodeContents(input)
+      const selection = window.getSelection()
+      selection.removeAllRanges()
+      selection.addRange(range)
+      input.setSelectionRange(0, 99)
+      document.execCommand('copy')
+      this.element.removeChild(input)
+    }
+    try {
+      if (NativeAndroid !== null && NativeAndroid !== undefined) {
+        NativeAndroid.copyToClipboard(text);
+      }
+    } catch (e) {
+    }
+  }
+}
+class List {
   constructor (name = 'list') {
     this.name = name
     this.list = JSON.parse(window.localStorage.getItem(name)) || {}
@@ -10273,6 +10306,7 @@ class ListView {
     const li = e.target
     const item = this.model.item(li.innerHTML)
     const otp = await asafonov.totp.generateTOTP(item.secret)
+    asafonov.clipboard.copy(otp)
     const url = this.model.itemUrl(li.innerHTML)
     this.qrCodeGenerator.run(url, otp)
   }
@@ -10298,20 +10332,20 @@ class ListView {
   }
 }
 class QRCodeGeneratorView {
-  constructor() {
-    this.qrCodeElement = this.createQRCodeElement()
-    this.qrCode = this.createQRCode()
+  constructor (scale = 0.6) {
+    this.qrCodeElement = this.createQRCodeElement(scale)
+    this.qrCode = this.createQRCode(scale)
   }
-  createQRCode() {
-    const size = Math.min(document.documentElement.clientWidth, document.documentElement.clientHeight) * 0.8
+  createQRCode (scale) {
+    const size = Math.min(document.documentElement.clientWidth, document.documentElement.clientHeight) * 0.8 * scale
     return new QRCode(this.qrCodeElement.querySelector('div'), {width: size, height: size})
   }
-  createQRCodeElement() {
+  createQRCodeElement (scale) {
     const div = document.createElement('div')
     div.className = 'qrContainer'
     const w = document.documentElement.clientWidth
     const h = document.documentElement.clientHeight
-    const size = Math.min(w, h)
+    const size = Math.min(w, h) * scale
     div.style.position = 'fixed'
     div.style.top = '0px'
     div.style.left = '0px'
@@ -10451,6 +10485,7 @@ class QRCodeReaderView {
 window.asafonov = {}
 window.asafonov.messageBus = new MessageBus()
 window.asafonov.totp = new TOTP()
+window.asafonov.clipboard = new Clipboard()
 window.asafonov.events = {
   ITEM_ADDED: 'ITEM_ADDED',
   ITEM_DELETED: 'ITEM_DELETED',
