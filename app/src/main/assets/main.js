@@ -10147,7 +10147,7 @@ class List {
   }
   itemUrl (key) {
     const item = this.item(key)
-    return `otpauth://totp/${item.provider}:${item.username}?secret=${item.secret}&issuer=${item.issuer}`
+    return `otpauth://totp/${item.provider}${! item.username ? '' : ':' + item.username}?secret=${item.secret}&issuer=${item.issuer}`
   } 
   onItemAdd (data) {
     this.list[data.provider] = data
