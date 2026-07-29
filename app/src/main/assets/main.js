@@ -10212,13 +10212,19 @@ class TOTP {
   constructor() {
   }
   parseUrl (urlString) {
-    const url = new URL(urlString)
-    const pathname = url.pathname.substr(1).split(':')
+    const url = urlString.replace(/[A-z]*\:\/\/[A-z]+\//g, '').split('?')
+    const pathname = url[0].split(':')
+    const params = {}
+    const parts = url.length > 1 ? url[1].split('&') : []
+    for (let i = 0; i < parts.length; ++i) {
+      const nv = parts[i].split('=')
+      params[nv[0]] = nv[1] || ''
+    }
     return {
-      secret: url.searchParams.get('secret'),
-      issuer: url.searchParams.get('issuer'),
+      secret: params.secret || '',
+      issuer: params.issuer || '',
       provider: pathname[0],
-      username: pathname.length > 1 ? pathname[1] : null
+      username: pathname.length > 1 ? pathname[1] : ''
     }
   }
   base32Decode (base32Str) {
@@ -10271,7 +10277,7 @@ class ControlsView {
     this.addEventListeners()
   }
   onQRCodeScan (data) {
-    const url = data.data
+    const url = data.data.replace(/[^A-z0-9\/\:\?\&=@\.]/g, '')
     const parsedData = asafonov.totp.parseUrl(url)
     asafonov.messageBus.send(asafonov.events.ITEM_ADDED, parsedData)
   }
