@@ -10303,6 +10303,7 @@ class ListView {
     this.container = document.querySelector('.content')
     asafonov.messageBus.subscribe(asafonov.events.LIST_UPDATED, this, 'onListUpdate')
     this.onItemClickProxy = this.onItemClick.bind(this)
+    this.onDeleteClickProxy = this.onDeleteClick.bind(this)
     this.onListUpdate()
     this.qrCodeGenerator = new QRCodeGeneratorView()
   }
@@ -10314,7 +10315,24 @@ class ListView {
     const otp = await asafonov.totp.generateTOTP(item.secret)
     asafonov.clipboard.copy(otp)
     const url = this.model.itemUrl(li.innerHTML)
-    this.qrCodeGenerator.run(url, otp)
+    const otpDiv = document.createElement('div')
+    otpDiv.innerHTML = otp
+    const deleteButton = document.createElement('div')
+    deleteButton.className = 'delete'
+    deleteButton.innerHTML = 'Delete'
+    deleteButton.setAttribute('data-item', JSON.stringify(item))
+    deleteButton.addEventListener('click', this.onDeleteClickProxy)
+    this.qrCodeGenerator.run(url, [otpDiv, deleteButton])
+  }
+  onDeleteClick (e) {
+    e.preventDefault()
+    e.stopPropagation()
+    if (confirm("Are you sure you want to delete the item?")) {
+      const button = e.target
+      const item = JSON.parse(button.getAttribute('data-item'))
+      asafonov.messageBus.send(asafonov.events.ITEM_DELETED, item)
+      this.qrCodeGenerator.close()
+    }
   }
   onListUpdate () {
     this.container.innerHTML = ''
@@ -10377,20 +10395,28 @@ class QRCodeGeneratorView {
     div.appendChild(message)
     const button = document.createElement('div')
     button.innerHTML = 'Close'
-    button.style.marginTop = '20px'
     button.addEventListener('click', () => {
       div.style.display = 'none'
     })
     div.appendChild(button)
     return div
   }
-  addMessage (msg) {
-    this.qrCodeElement.querySelector('.message').innerHTML = msg
+  addMessage (msgElements) {
+    const messageContainer = this.qrCodeElement.querySelector('.message')
+    messageContainer.innerHTML = ''
+    if (msgElements && msgElements.length > 0) {
+      for (let i = 0; i < msgElements.length; ++i) {
+        messageContainer.appendChild(msgElements[i])
+      }
+    }
   }
   run (data, msg) {
     this.qrCodeElement.style.display = 'flex'
     this.addMessage(msg)
     this.qrCode.makeCode(data)
+  }
+  close() {
+    this.qrCodeElement.style.display = 'none'
   }
   destroy() {
     this.qrCode = null
