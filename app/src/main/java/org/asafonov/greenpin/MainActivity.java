@@ -35,7 +35,7 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             s.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
         }
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new MyWebViewClient());
 
         webView.setWebChromeClient(new MyWebChromeClient() {
             @Override
