@@ -10269,6 +10269,42 @@ class TOTP {
     return result
   }
 }
+class Updater {
+  constructor (upstreamVersionUrl) {
+    this.upstreamVersionUrl = upstreamVersionUrl
+  }
+  getCurrentVersion() {
+    return window.asafonov.version
+  }
+  getUpstreamVersion() {
+    return fetch(this.upstreamVersionUrl)
+      .then(data => data.text())
+      .then(data => data.replace(/[^0-9\.]/g, ''))
+  }
+  compareVersion (v1, v2) {
+    const _v1 = v1.split('.').map(i => parseInt(i, 10))
+    const _v2 = v2.split('.').map(i => parseInt(i, 10))
+    let ret = false
+    for (let i = 0; i < _v1.length; ++i) {
+      if (_v1[i] !== _v2[i]) {
+        ret = _v1[i] > _v2[i]
+        break
+      }
+    }
+    return ret
+  }
+  getUpdateUrl (template) {
+    return template.replace('{VERSION}', this.upstreamVersion)
+  }
+  isUpdateNeeded() {
+    return this.getUpstreamVersion().
+      then(upstreamVersion => {
+        this.upstreamVersion = upstreamVersion
+        const currentVersion = this.getCurrentVersion()
+        return this.compareVersion(upstreamVersion, currentVersion)
+      })
+  }
+}
 class ControlsView {
   constructor() {
     this.plusButton = document.querySelector('.plus')
@@ -10514,10 +10550,28 @@ class QRCodeReaderView {
     this.callbackFn = null
   }
 }
+class UpdaterView {
+  constructor() {
+    const upstreamVersionUrl = `https://raw.githubusercontent.com/asafonov/${window.asafonov.app}/master/VERSION.txt`
+    this.model = new Updater(upstreamVersionUrl)
+    this.updateUrl = `https://github.com/asafonov/${window.asafonov.app}/releases/download/{VERSION}/app-release.apk`
+  }
+  showUpdateDialogIfNeeded() {
+    this.model.isUpdateNeeded()
+      .then(isUpdateNeeded => {
+        if (isUpdateNeeded) this.showUpdateDialog()
+      })
+  }
+  showUpdateDialog() {
+    if (confirm('New version available. Do you want to update the App?')) location.href = this.model.getUpdateUrl(this.updateUrl)
+  }
+}
 window.asafonov = {}
 window.asafonov.messageBus = new MessageBus()
 window.asafonov.totp = new TOTP()
 window.asafonov.clipboard = new Clipboard()
+window.asafonov.version = '0.7'
+window.asafonov.app = 'greenPIN.apk'
 window.asafonov.events = {
   ITEM_ADDED: 'ITEM_ADDED',
   ITEM_DELETED: 'ITEM_DELETED',
@@ -10531,4 +10585,6 @@ window.onerror = (msg, url, line) => {
 document.addEventListener("DOMContentLoaded", function(event) {
   const listView = new ListView()
   const controlsView = new ControlsView()
+  const updaterView = new UpdaterView()
+  updaterView.showUpdateDialogIfNeeded()
 })
