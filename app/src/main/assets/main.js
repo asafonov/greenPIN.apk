@@ -10138,9 +10138,13 @@ class List {
     this.list = JSON.parse(window.localStorage.getItem(name)) || {}
     asafonov.messageBus.subscribe(asafonov.events.ITEM_ADDED, this, 'onItemAdd')
     asafonov.messageBus.subscribe(asafonov.events.ITEM_DELETED, this, 'onItemDelete')
+    asafonov.messageBus.subscribe(asafonov.events.ITEM_RENAMED, this, 'onItemRename')
   }
   get() {
     return this.list
+  }
+  exists (key) {
+    return this.list[key] !== null && this.list[key] !== undefined
   }
   item (key) {
     return this.list[key]
@@ -10149,13 +10153,27 @@ class List {
     const item = this.item(key)
     return `otpauth://totp/${item.provider}${! item.username ? '' : ':' + item.username}?secret=${item.secret}&issuer=${item.issuer}`
   } 
+  getKey (provider) {
+    let i = ''
+    while (this.list[provider + i] !== null && this.list[provider + i] !== undefined) {
+      i = ! i ? 1 : i + 1
+    }
+    return provider + i
+  }
   onItemAdd (data) {
-    this.list[data.provider] = data
+    if (!data.provider) return
+    this.list[this.getKey(data.provider)] = data
     this.save()
     asafonov.messageBus.send(asafonov.events.LIST_UPDATED)
   }
   onItemDelete (data) {
-    delete this.list[data.provider]
+    delete this.list[data.key]
+    this.save()
+    asafonov.messageBus.send(asafonov.events.LIST_UPDATED)
+  }
+  onItemRename({oldName, newName}) {
+    this.list[newName] = {...this.list[oldName]}
+    delete this.list[oldName]
     this.save()
     asafonov.messageBus.send(asafonov.events.LIST_UPDATED)
   }
@@ -10168,6 +10186,7 @@ class List {
   destroy() {
     asafonov.messageBus.unsubscribe(asafonov.events.ITEM_ADDED, this, 'onItemAdd')
     asafonov.messageBus.unsubscribe(asafonov.events.ITEM_DELETED, this, 'onItemDelete')
+    asafonov.messageBus.unsubscribe(asafonov.events.ITEM_RENAMED, this, 'onItemRename')
   }
 }
 class MessageBus {
@@ -10340,6 +10359,7 @@ class ListView {
     asafonov.messageBus.subscribe(asafonov.events.LIST_UPDATED, this, 'onListUpdate')
     this.onItemClickProxy = this.onItemClick.bind(this)
     this.onDeleteClickProxy = this.onDeleteClick.bind(this)
+    this.onRenameClickProxy = this.onRenameClick.bind(this)
     this.onListUpdate()
     this.qrCodeGenerator = new QRCodeGeneratorView()
   }
@@ -10352,21 +10372,40 @@ class ListView {
     asafonov.clipboard.copy(otp)
     const url = this.model.itemUrl(li.innerHTML)
     const otpDiv = document.createElement('div')
+    otpDiv.className = 'header'
     otpDiv.innerHTML = otp
+    const renameButton = document.createElement('div')
+    renameButton.innerHTML = 'Rename'
+    renameButton.setAttribute('data-key', li.innerHTML)
+    renameButton.addEventListener('click', this.onRenameClickProxy)
     const deleteButton = document.createElement('div')
     deleteButton.className = 'delete'
     deleteButton.innerHTML = 'Delete'
-    deleteButton.setAttribute('data-item', JSON.stringify(item))
+    deleteButton.setAttribute('data-key', li.innerHTML)
     deleteButton.addEventListener('click', this.onDeleteClickProxy)
-    this.qrCodeGenerator.run(url, [otpDiv, deleteButton])
+    this.qrCodeGenerator.run(url, [otpDiv, renameButton, deleteButton])
+  }
+  onRenameClick (e) {
+    e.preventDefault()
+    e.stopPropagation()
+    const oldName = e.target.getAttribute('data-key')
+    const newName = prompt('Rename item', oldName)
+    if (!! newName && newName !== oldName) {
+      if (this.model.exists(newName)) {
+        alert(`Item '${newName}' already exists. Please choose another name.`)
+        return
+      }
+      this.qrCodeGenerator.close()
+      asafonov.messageBus.send(asafonov.events.ITEM_RENAMED, {oldName, newName})
+    }
   }
   onDeleteClick (e) {
     e.preventDefault()
     e.stopPropagation()
     if (confirm("Are you sure you want to delete the item?")) {
       const button = e.target
-      const item = JSON.parse(button.getAttribute('data-item'))
-      asafonov.messageBus.send(asafonov.events.ITEM_DELETED, item)
+      const key = e.target.getAttribute('data-key')
+      asafonov.messageBus.send(asafonov.events.ITEM_DELETED, {key})
       this.qrCodeGenerator.close()
     }
   }
@@ -10388,6 +10427,9 @@ class ListView {
     this.container = null
     this.qrCodeGenerator.destroy()
     this.qrCodeGenerator = null
+    this.onItemClickProxy = null
+    this.onDeleteClickProxy = null
+    this.onRenameClickProxy = null
     asafonov.messageBus.unsubscribe(asafonov.events.LIST_UPDATED, this, 'onListUpdate')
   }
 }
@@ -10575,6 +10617,7 @@ window.asafonov.app = 'greenPIN.apk'
 window.asafonov.events = {
   ITEM_ADDED: 'ITEM_ADDED',
   ITEM_DELETED: 'ITEM_DELETED',
+  ITEM_RENAMED: 'ITEM_RENAMED',
   LIST_UPDATED: 'LIST_UPDATED'
 }
 window.asafonov.settings = {
