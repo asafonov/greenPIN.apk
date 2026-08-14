@@ -10161,7 +10161,7 @@ class List {
     return provider + i
   }
   onItemAdd (data) {
-    if (!data.provider) return
+    if (! data.provider && ! data.secret) return
     this.list[this.getKey(data.provider)] = data
     this.save()
     asafonov.messageBus.send(asafonov.events.LIST_UPDATED)
@@ -10612,7 +10612,7 @@ window.asafonov = {}
 window.asafonov.messageBus = new MessageBus()
 window.asafonov.totp = new TOTP()
 window.asafonov.clipboard = new Clipboard()
-window.asafonov.version = '0.8'
+window.asafonov.version = '0.9'
 window.asafonov.app = 'greenPIN.apk'
 window.asafonov.events = {
   ITEM_ADDED: 'ITEM_ADDED',

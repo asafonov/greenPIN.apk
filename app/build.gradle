@@ -8,8 +8,8 @@ android {
         applicationId "org.asafonov.greenpin"
         minSdkVersion 21
         targetSdkVersion 33
-        versionCode 8
-        versionName "0.8"
+        versionCode 9
+        versionName "0.9"
     }
     buildTypes {
         release {
